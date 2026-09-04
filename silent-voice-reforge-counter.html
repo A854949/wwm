@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>燕雲十六聲｜藏音五孔計數器</title>
+  <style>
+    :root {
+      --green: #217346;
+      --green-dark: #185c37;
+      --green-soft: #e8f3ed;
+      --gold: #b7791f;
+      --gold-soft: #fff8e7;
+      --ink: #1f2937;
+      --muted: #64748b;
+      --line: #d7dee8;
+      --panel: #ffffff;
+      --bg: #f3f6f8;
+      --danger: #b42318;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
+    }
+
+    .app { width: min(1040px, calc(100% - 28px)); margin: 28px auto 48px; }
+    .titlebar {
+      display: flex; align-items: center; justify-content: space-between; gap: 18px;
+      padding: 20px 24px; color: #fff; background: var(--green);
+      border-radius: 14px 14px 0 0;
+    }
+    .titlebar h1 { margin: 0; font-size: clamp(20px, 3vw, 30px); letter-spacing: .04em; }
+    .titlebar p { margin: 5px 0 0; opacity: .85; font-size: 13px; }
+    .save-state { white-space: nowrap; font-size: 13px; opacity: .9; }
+    .sheet { background: var(--panel); border: 1px solid var(--line); border-top: 0; padding: 24px; }
+
+    .toolbar { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: stretch; margin-bottom: 22px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .total-card { border: 1px solid var(--line); background: #fafcfd; padding: 18px 20px; border-radius: 10px; }
+    .label { color: var(--muted); font-size: 14px; font-weight: 700; }
+    .total { display: block; margin-top: 2px; color: var(--green-dark); font-size: 38px; line-height: 1.1; font-weight: 800; font-variant-numeric: tabular-nums; }
+    button { font: inherit; border: 0; cursor: pointer; transition: transform .08s, filter .15s, background .15s; }
+    button:active { transform: translateY(1px); }
+    button:focus-visible { outline: 3px solid #60a5fa; outline-offset: 2px; }
+    .reroll { min-width: 210px; padding: 16px 28px; border-radius: 10px; color: #fff; background: var(--green); font-size: 20px; font-weight: 800; box-shadow: 0 6px 14px #2173462e; }
+    .reroll:hover { background: var(--green-dark); }
+
+    .section-title { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; }
+    .section-title h2 { margin: 0; font-size: 17px; }
+    .hint { color: var(--muted); font-size: 12px; }
+    .holes { display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid var(--line); border-right: 0; margin-bottom: 26px; }
+    .hole { min-width: 0; text-align: center; border-right: 1px solid var(--line); }
+    .hole-name { padding: 9px; color: #fff; background: var(--green-dark); font-weight: 700; }
+    .count { padding: 18px 8px 12px; font-size: clamp(30px, 5vw, 44px); line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .unit { margin-bottom: 14px; color: var(--muted); font-size: 12px; }
+    .hole-actions { display: grid; gap: 7px; padding: 0 9px 12px; }
+    .gold-btn, .lock-btn { width: 100%; padding: 9px 6px; border-radius: 7px; font-weight: 800; }
+    .gold-btn { border: 1px solid #e3b45b; color: #774b0c; background: var(--gold-soft); }
+    .gold-btn:hover { background: #ffefbe; }
+    .lock-btn { border: 1px solid #9aa8b8; color: #475569; background: #f8fafc; }
+    .lock-btn:hover { background: #e2e8f0; }
+    .hole.unavailable { background: #f1f5f9; color: #94a3b8; }
+    .hole.unavailable .hole-name { background: #94a3b8; }
+    .hole.unavailable .count { font-size: 18px; }
+    .hole.pinned { background: #fff8e7; box-shadow: inset 0 0 0 2px #d69e2e; }
+    .hole.pinned .hole-name { background: #9a6700; }
+    .hole.pinned .lock-btn { color: #fff; border-color: #9a6700; background: #9a6700; }
+    .gold-btn:disabled, .lock-btn:disabled { cursor: not-allowed; color: #94a3b8; border-color: #cbd5e1; background: #e2e8f0; }
+    .progress-note { margin: -16px 0 24px; padding: 10px 12px; border-left: 4px solid var(--green); background: var(--green-soft); color: #365848; font-size: 13px; }
+    .stone-panel { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; margin: 0 0 24px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fafcfd; }
+    .field label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .field input { width: 100%; padding: 10px 11px; border: 1px solid #b8c4d1; border-radius: 7px; background: #fff; font: inherit; }
+
+    .history-head { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .history-head h2 { margin: 0; font-size: 17px; }
+    .actions { display: flex; gap: 8px; }
+    .secondary { padding: 8px 12px; border: 1px solid var(--line); border-radius: 7px; color: #334155; background: #fff; font-size: 13px; font-weight: 700; }
+    .secondary:hover { background: #f1f5f9; }
+    .danger { color: var(--danger); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { padding: 10px 12px; text-align: left; color: #fff; background: var(--green); border-right: 1px solid #ffffff42; }
+    th:nth-child(n+2), td:nth-child(n+2) { text-align: right; }
+    td { padding: 10px 12px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+    tbody tr:nth-child(even) { background: #f8fafc; }
+    .empty td { padding: 28px; color: var(--muted); text-align: center !important; }
+    .footer { padding: 12px 24px; color: var(--muted); background: #f8fafc; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 14px 14px; font-size: 12px; }
+
+    .toast { position: fixed; left: 50%; bottom: 24px; translate: -50% 20px; padding: 10px 16px; border-radius: 8px; color: #fff; background: #1f2937; opacity: 0; pointer-events: none; transition: .2s; box-shadow: 0 8px 24px #0003; }
+    .toast.show { translate: -50% 0; opacity: 1; }
+
+    @media (max-width: 700px) {
+      .app { width: min(100% - 16px, 1040px); margin-top: 8px; }
+      .titlebar, .sheet { padding: 18px; }
+      .titlebar { align-items: flex-start; }
+      .save-state { display: none; }
+      .toolbar { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: 1fr 1fr; }
+      .reroll { min-height: 58px; }
+      .holes { grid-template-columns: 1fr; border-bottom: 0; }
+      .hole { display: grid; grid-template-columns: 62px 1fr 115px; align-items: center; border-bottom: 1px solid var(--line); }
+      .hole-name { align-self: stretch; display: grid; place-items: center; }
+      .count { padding: 14px 4px; font-size: 34px; }
+      .unit { display: none; }
+      .hole-actions { padding: 8px; }
+      .history-head { align-items: flex-start; flex-direction: column; }
+      .stone-panel { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="titlebar">
+      <div><h1>燕雲十六聲・藏音五孔計數器</h1><p>單頁離線版｜資料自動保存在此瀏覽器</p></div>
+      <div class="save-state" id="saveState">✓ 已自動保存</div>
+    </header>
+
+    <section class="sheet">
+      <div class="toolbar">
+        <div class="stats">
+          <div class="total-card"><span class="label">總重鑄次數</span><strong class="total" id="total">0</strong></div>
+          <div class="total-card"><span class="label">剩餘石頭</span><strong class="total" id="stones">0</strong></div>
+          <div class="total-card"><span class="label">累計充值</span><strong class="total" id="topupTotal">0</strong></div>
+        </div>
+        <button class="reroll" id="reroll" type="button">重鑄 +1</button>
+      </div>
+
+      <div class="stone-panel">
+        <div class="field"><label for="setStones">設定目前剩餘石頭</label><input id="setStones" type="number" min="0" step="1" inputmode="numeric" placeholder="例如：110"></div>
+        <div class="field"><label for="topupAmount">充值石頭數</label><input id="topupAmount" type="number" min="1" step="1" inputmode="numeric" placeholder="輸入增加數量"></div>
+        <div class="actions"><button class="secondary" id="setStonesBtn" type="button">設定</button><button class="secondary" id="topupBtn" type="button">充值</button></div>
+      </div>
+
+      <div class="section-title"><h2>五孔目前計數</h2><span class="hint">每次重鑄，已開啟孔位同時 +1</span></div>
+      <div class="holes" id="holes"></div>
+      <div class="progress-note" id="unlockProgress"></div>
+
+      <div class="history-head">
+        <div><h2>出金歷史</h2><span class="hint" id="recordCount">共 0 筆紀錄</span></div>
+        <div class="actions">
+          <button class="secondary" id="exportExcel" type="button">匯出 Excel</button>
+          <button class="secondary" id="clearHistory" type="button">清空紀錄</button>
+          <button class="secondary danger" id="resetAll" type="button">全部重置</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>孔位</th><th>第幾抽出金</th><th>總重鑄第幾次</th><th>剩餘石頭</th><th>本段重鑄</th></tr></thead>
+          <tbody id="history"></tbody>
+        </table>
+      </div>
+    </section>
+    <footer class="footer">提示：重鑄後若有出金，再按對應孔位的「出金」；該孔會記錄並歸 0。</footer>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      'use strict';
+      const STORAGE_KEY = 'yysls-cangyin-five-hole-counter-v1';
+      const initialState = () => ({ counts: [0, 0, 0, 0, 0], locked: [false, false, false, false, false], total: 0, stones: 0, topupTotal: 0, sinceLastGold: 0, history: [], topups: [] });
+      let state = load();
+      let toastTimer;
+
+      const el = {
+        total: document.querySelector('#total'), stones: document.querySelector('#stones'), topupTotal: document.querySelector('#topupTotal'), holes: document.querySelector('#holes'),
+        history: document.querySelector('#history'), recordCount: document.querySelector('#recordCount'),
+        saveState: document.querySelector('#saveState'), toast: document.querySelector('#toast'), unlockProgress: document.querySelector('#unlockProgress')
+      };
+
+      function load() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+          if (!saved || !Array.isArray(saved.counts) || saved.counts.length !== 5 || !Array.isArray(saved.history)) return initialState();
+          return {
+            counts: saved.counts.map((n, i) => i === 4 || Number(saved.total) < i * 30 ? 0 : Math.max(0, Number(n) || 0)),
+            locked: Array.isArray(saved.locked) && saved.locked.length === 5 ? saved.locked.map((value, i) => i === 4 ? false : Boolean(value)) : [false, false, false, false, false],
+            total: Math.max(0, Number(saved.total) || 0),
+            stones: Math.max(0, Number(saved.stones) || 0),
+            topupTotal: Math.max(0, Number(saved.topupTotal) || 0),
+            sinceLastGold: Math.max(0, Number(saved.sinceLastGold) || 0),
+            history: saved.history.filter(x => x && Number.isFinite(Number(x.hole))).map(x => ({ hole: Number(x.hole), count: Number(x.count) || 0, total: Number(x.total) || 0, counts: Array.isArray(x.counts) ? x.counts.map(Number) : null, stones: Number(x.stones) || 0, clicks: Number(x.clicks) || 0, lockedCount: Number(x.lockedCount) || 0, cost: Number(x.cost) || 1 })),
+            topups: Array.isArray(saved.topups) ? saved.topups : []
+          };
+        } catch { return initialState(); }
+      }
+
+      function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        el.saveState.textContent = '✓ 已自動保存';
+      }
+
+      function showToast(message) {
+        el.toast.textContent = message;
+        el.toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.toast.classList.remove('show'), 1600);
+      }
+
+      function render() {
+        el.total.textContent = state.total.toLocaleString('zh-TW');
+        el.stones.textContent = state.stones.toLocaleString('zh-TW');
+        el.topupTotal.textContent = state.topupTotal.toLocaleString('zh-TW');
+        const unlocked = Math.min(5, Math.floor(state.total / 30) + 1);
+        const lockedCount = state.locked.filter(Boolean).length;
+        const rerollCost = [1, 2, 5, 10][lockedCount];
+        document.querySelector('#reroll').textContent = `重鑄 -${rerollCost} 石頭`;
+        el.holes.innerHTML = state.counts.map((count, i) => `
+          <article class="hole ${i >= unlocked ? 'unavailable' : ''} ${state.locked[i] ? 'pinned' : ''}">
+            <div class="hole-name">孔${i + 1}</div>
+            <div><div class="count">${i >= unlocked ? '尚未開啟' : i === 4 ? '必定金' : count.toLocaleString('zh-TW')}</div><div class="unit">${i >= unlocked ? `總重鑄 ${i * 30} 次開啟` : state.locked[i] ? '已鎖定，不再累計' : i === 4 ? '開孔即出金，無須重鑄' : '目前抽數'}</div></div>
+            <div class="hole-actions">
+              <button class="gold-btn" type="button" data-gold="${i}" ${i >= unlocked || state.locked[i] || i === 4 ? 'disabled' : ''}>${i >= unlocked ? '鎖定' : i === 4 ? '必定金' : '出金'}</button>
+              <button class="lock-btn" type="button" data-lock="${i}" ${i >= unlocked || i === 4 ? 'disabled' : ''}>${i === 4 && i < unlocked ? '無須鎖孔' : state.locked[i] ? '解鎖' : '鎖孔'}</button>
+            </div>
+          </article>`).join('');
+        if (unlocked < 5) {
+          const target = unlocked * 30;
+          el.unlockProgress.textContent = `再重鑄 ${target - state.total} 次，將開啟孔${unlocked + 1}（總重鑄 ${target} 次）`;
+        } else {
+          el.unlockProgress.textContent = '五個孔位已全部開啟';
+        }
+        el.recordCount.textContent = `共 ${state.history.length.toLocaleString('zh-TW')} 筆紀錄`;
+        el.history.innerHTML = state.history.length
+          ? [...state.history].reverse().map(x => `<tr><td>孔${x.hole}</td><td>${x.count.toLocaleString('zh-TW')}</td><td>${x.total.toLocaleString('zh-TW')}</td><td>${x.stones.toLocaleString('zh-TW')}</td><td>${x.clicks.toLocaleString('zh-TW')}</td></tr>`).join('')
+          : '<tr class="empty"><td colspan="5">尚無出金紀錄</td></tr>';
+      }
+
+      document.querySelector('#reroll').addEventListener('click', () => {
+        const lockedCount = state.locked.filter(Boolean).length;
+        const cost = [1, 2, 5, 10][lockedCount];
+        if (state.stones < cost) return showToast(`石頭不足，本次重鑄需要 ${cost} 顆`);
+        const unlockedBefore = Math.min(5, Math.floor(state.total / 30) + 1);
+        for (let i = 0; i < Math.min(unlockedBefore, 4); i++) if (!state.locked[i]) state.counts[i] += 1;
+        state.total += 1;
+        state.stones -= cost;
+        state.sinceLastGold += 1;
+        save(); render(); showToast(`已重鑄，消耗 ${cost} 顆石頭`);
+      });
+
+      el.holes.addEventListener('click', event => {
+        const goldButton = event.target.closest('[data-gold]');
+        const lockButton = event.target.closest('[data-lock]');
+        if (lockButton) {
+          const index = Number(lockButton.dataset.lock);
+          if (!state.locked[index] && state.locked.filter(Boolean).length >= 3) return showToast('最多只能鎖定三個孔位');
+          state.locked[index] = !state.locked[index];
+          save(); render(); showToast(`孔${index + 1}已${state.locked[index] ? '鎖定' : '解鎖'}`);
+          return;
+        }
+        if (!goldButton) return;
+        const index = Number(goldButton.dataset.gold);
+        const snapshot = [...state.counts];
+        const lockedCount = state.locked.filter(Boolean).length;
+        state.history.push({ hole: index + 1, count: state.counts[index], total: state.total, counts: snapshot, stones: state.stones, clicks: state.sinceLastGold, lockedCount, cost: [1, 2, 5, 10][lockedCount] });
+        const recorded = state.counts[index];
+        state.counts[index] = 0;
+        state.sinceLastGold = 0;
+        save(); render(); showToast(`孔${index + 1} 已記錄：第 ${recorded} 抽出金`);
+      });
+
+      function readInteger(selector, allowZero = false) {
+        const input = document.querySelector(selector);
+        const value = Number(input.value);
+        if (!Number.isInteger(value) || value < (allowZero ? 0 : 1)) return null;
+        input.value = '';
+        return value;
+      }
+
+      document.querySelector('#setStonesBtn').addEventListener('click', () => {
+        const value = readInteger('#setStones', true);
+        if (value === null) return showToast('請輸入 0 或正整數');
+        state.stones = value;
+        save(); render(); showToast(`剩餘石頭已設定為 ${value}`);
+      });
+
+      document.querySelector('#topupBtn').addEventListener('click', () => {
+        const value = readInteger('#topupAmount');
+        if (value === null) return showToast('請輸入正整數充值數量');
+        state.stones += value;
+        state.topupTotal += value;
+        state.topups.push({ amount: value, stones: state.stones, total: state.total, time: new Date().toLocaleString('zh-TW') });
+        save(); render(); showToast(`已充值 ${value} 顆石頭`);
+      });
+
+      function xml(value) {
+        return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+      }
+
+      function columnName(index) {
+        let name = '';
+        for (let n = index + 1; n; n = Math.floor((n - 1) / 26)) name = String.fromCharCode(65 + (n - 1) % 26) + name;
+        return name;
+      }
+
+      function sheetXml(rows, widths) {
+        const cols = widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('');
+        const body = rows.map((row, r) => `<row r="${r + 1}">${row.map((item, c) => {
+          const data = item && typeof item === 'object' && 'v' in item ? item : { v: item };
+          const ref = `${columnName(c)}${r + 1}`;
+          const style = data.s ? ` s="${data.s}"` : '';
+          return typeof data.v === 'number' && Number.isFinite(data.v)
+            ? `<c r="${ref}"${style}><v>${data.v}</v></c>`
+            : `<c r="${ref}" t="inlineStr"${style}><is><t xml:space="preserve">${xml(data.v)}</t></is></c>`;
+        }).join('')}</row>`).join('');
+        return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols}</cols><sheetData>${body}</sheetData></worksheet>`;
+      }
+
+      function crc32(bytes) {
+        if (!crc32.table) {
+          crc32.table = Array.from({ length: 256 }, (_, n) => {
+            let c = n;
+            for (let k = 0; k < 8; k++) c = (c & 1) ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+            return c >>> 0;
+          });
+        }
+        let crc = 0xFFFFFFFF;
+        for (const byte of bytes) crc = crc32.table[(crc ^ byte) & 255] ^ (crc >>> 8);
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+      }
+
+      function zipFiles(files) {
+        const encoder = new TextEncoder();
+        const parts = [];
+        const central = [];
+        let offset = 0;
+        const u16 = n => new Uint8Array([n & 255, (n >>> 8) & 255]);
+        const u32 = n => new Uint8Array([n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255]);
+        const join = arrays => {
+          const out = new Uint8Array(arrays.reduce((sum, a) => sum + a.length, 0));
+          let at = 0;
+          for (const a of arrays) { out.set(a, at); at += a.length; }
+          return out;
+        };
+        for (const [name, content] of Object.entries(files)) {
+          const nameBytes = encoder.encode(name);
+          const data = encoder.encode(content);
+          const crc = crc32(data);
+          const local = join([u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(0), u16(0), u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0), nameBytes, data]);
+          parts.push(local);
+          central.push(join([u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(0), u16(0), u32(crc), u32(data.length), u32(data.length), u16(nameBytes.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), nameBytes]));
+          offset += local.length;
+        }
+        const centralData = join(central);
+        const end = join([u32(0x06054b50), u16(0), u16(0), u16(central.length), u16(central.length), u32(centralData.length), u32(offset), u16(0)]);
+        return join([...parts, centralData, end]);
+      }
+
+      function exportExcel() {
+        const now = new Date();
+        const header = values => values.map(v => ({ v, s: 1 }));
+        const progressRows = [
+          header(['項目', '數值', '狀態']),
+          ['總重鑄次數', state.total, ''], ['剩餘石頭', state.stones, ''], ['累計充值石頭', state.topupTotal, ''],
+          ...state.counts.map((v, i) => [`${i + 1}孔`, i === 4 && state.total >= 120 ? '必定金' : v, state.total < i * 30 ? '未開啟' : state.locked[i] ? '已鎖定' : i === 4 ? '開孔即出金，無須鎖孔' : '使用中'])
+        ];
+        const historyRows = [
+          header(['次數', '1孔', '2孔', '3孔', '4孔', '5孔', '剩餘石頭', '距上次出金重鑄次數', '出金孔位', '總重鑄次數', '鎖孔數', '每次耗石']),
+          ...state.history.map((x, i) => {
+            const values = x.counts || ['', '', '', '', ''];
+            return [i + 1, ...values.map((v, j) => ({ v, s: j + 1 === x.hole ? 2 : 0 })), x.stones, x.clicks, x.hole, x.total, x.lockedCount, x.cost];
+          })
+        ];
+        const topupRows = [
+          header(['次數', '充值石頭數', '充值後剩餘石頭', '當時總重鑄次數', '時間']),
+          ...state.topups.map((x, i) => [i + 1, Number(x.amount) || 0, Number(x.stones) || 0, Number(x.total) || 0, x.time || ''])
+        ];
+        const files = {
+          '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`,
+          '_rels/.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+          'xl/workbook.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="目前進度" sheetId="1" r:id="rId1"/><sheet name="出金紀錄" sheetId="2" r:id="rId2"/><sheet name="充值紀錄" sheetId="3" r:id="rId3"/></sheets></workbook>`,
+          'xl/_rels/workbook.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+          'xl/styles.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF217346"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFE699"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/></cellXfs></styleSheet>`,
+          'xl/worksheets/sheet1.xml': sheetXml(progressRows, [22, 14, 16]),
+          'xl/worksheets/sheet2.xml': sheetXml(historyRows, [10, 10, 10, 10, 10, 10, 14, 22, 12, 16, 10, 12]),
+          'xl/worksheets/sheet3.xml': sheetXml(topupRows, [10, 16, 20, 20, 24])
+        };
+        const blob = new Blob([zipFiles(files)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `藏音五孔計數_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.xlsx`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        showToast('XLSX 檔已匯出');
+      }
+
+      document.querySelector('#exportExcel').addEventListener('click', exportExcel);
+
+      document.querySelector('#clearHistory').addEventListener('click', () => {
+        if (!state.history.length) return showToast('目前沒有紀錄');
+        if (!confirm('確定要清空所有出金歷史嗎？目前計數不會受影響。')) return;
+        state.history = [];
+        save(); render(); showToast('出金歷史已清空');
+      });
+
+      document.querySelector('#resetAll').addEventListener('click', () => {
+        if (!confirm('確定要全部重置嗎？五孔計數、總重鑄次數與出金歷史都會清除。')) return;
+        state = initialState();
+        save(); render(); showToast('所有資料已重置');
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
