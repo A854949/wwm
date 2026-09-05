@@ -254,7 +254,11 @@
         criticalUnlock.textContent = unlocked >= 5 ? '五孔已全開' : '暴擊提前開孔';
         el.recordCount.textContent = `共 ${state.history.length.toLocaleString('zh-TW')} 筆紀錄`;
         el.history.innerHTML = state.history.length
-          ? state.history.map(x => `<tr>${historyValues(x).map((v, i) => `<td${i < 4 && goldHoles(x).includes(i + 1) ? ' class="gold-cell"' : ''}>${typeof v === 'number' ? v.toLocaleString('zh-TW') : xml(v)}${i < 4 && (x.lockedHoles || []).includes(i + 1) ? ' <span aria-label="曾鎖孔" title="此孔曾鎖定">🔒</span>' : ''}</td>`).join('')}</tr>`).join('')
+          ? state.history.map(x => `<tr>${historyValues(x).map((v, i) => {
+              const locked = i < 4 && (x.lockedHoles || []).includes(i + 1);
+              const highlighted = i < 4 && (goldHoles(x).includes(i + 1) || locked);
+              return `<td${highlighted ? ' class="gold-cell"' : ''}>${locked ? '<span aria-label="曾鎖孔" title="此孔曾鎖定">🔒</span> ' : ''}${typeof v === 'number' ? v.toLocaleString('zh-TW') : xml(v)}</td>`;
+            }).join('')}</tr>`).join('')
           : '<tr class="empty"><td colspan="9">尚無出金紀錄</td></tr>';
       }
 
@@ -321,7 +325,7 @@
           if (!previous.counts) previous.counts = [...snapshot];
           previous.counts[index] = state.counts[index];
         } else {
-          state.history.push({ hole: index + 1, holes: [index + 1], count: state.counts[index], total: state.total, counts: snapshot, stones: state.stones, clicks: state.sinceLastGold, lockedCount, cost: [1, 2, 5, 10][lockedCount] });
+          state.history.push({ hole: index + 1, holes: [index + 1], lockedHoles: state.locked.flatMap((locked, i) => locked ? [i + 1] : []), count: state.counts[index], total: state.total, counts: snapshot, stones: state.stones, clicks: state.sinceLastGold, lockedCount, cost: [1, 2, 5, 10][lockedCount] });
         }
         const recorded = state.counts[index];
         state.counts[index] = 0;
@@ -426,7 +430,10 @@
         ];
         const historyRows = [
           header(['1孔', '2孔', '3孔', '4孔', '剩餘石頭', '出金孔位', '總重鑄次數', '鎖孔數', '每次耗石']),
-          ...state.history.map(x => historyValues(x).map((v, j) => ({ v: j < 4 && (x.lockedHoles || []).includes(j + 1) ? `${v} 🔒` : v, s: j < 4 && goldHoles(x).includes(j + 1) ? 2 : 0 })))
+          ...state.history.map(x => historyValues(x).map((v, j) => {
+            const locked = j < 4 && (x.lockedHoles || []).includes(j + 1);
+            return { v: locked ? `🔒 ${v}` : v, s: j < 4 && (goldHoles(x).includes(j + 1) || locked) ? 2 : 0 };
+          }))
         ];
         const files = {
           '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`,
