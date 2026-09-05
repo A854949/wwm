@@ -40,6 +40,7 @@
     .save-state { white-space: nowrap; font-size: 13px; opacity: .9; }
     .github-star { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 8px 13px; border: 1px solid #ffffff70; border-radius: 8px; color: #fff; background: #ffffff18; font-size: 13px; font-weight: 800; text-decoration: none; white-space: nowrap; transition: background .15s, transform .08s; }
     .github-star:hover { background: #ffffff30; }
+    .github-star-count { margin-left: 8px; padding: 2px 7px; border-radius: 12px; background: #ffffff26; font-variant-numeric: tabular-nums; }
     .github-star:active { transform: translateY(1px); }
     .github-star:focus-visible { outline: 3px solid #facc15; outline-offset: 2px; }
     .sheet { background: var(--panel); border: 1px solid var(--line); border-top: 0; padding: 24px; }
@@ -551,7 +552,37 @@
         save(); render(); showToast('所有資料已重置');
       });
 
+      async function updateStarCount() {
+        const link = document.querySelector('.github-star');
+        const badge = document.createElement('span');
+        badge.className = 'github-star-count';
+        badge.textContent = '…';
+        badge.setAttribute('aria-live', 'polite');
+        link.append(badge);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        try {
+          const response = await fetch('https://api.github.com/repos/A854949/wwm', {
+            headers: { Accept: 'application/vnd.github+json' },
+            credentials: 'omit', signal: controller.signal
+          });
+          if (!response.ok) throw new Error('Star count unavailable');
+          const data = await response.json();
+          if (!Number.isSafeInteger(data.stargazers_count) || data.stargazers_count < 0) throw new Error('Invalid star count');
+          const count = data.stargazers_count.toLocaleString('zh-TW');
+          badge.textContent = count;
+          link.setAttribute('aria-label', `目前 ${count} 顆星，前往 GitHub 為 A854949/wwm 按星星`);
+          link.title = `目前 ${count} 顆星`;
+        } catch {
+          badge.textContent = '—';
+          link.title = '暫時無法讀取星星數量，點此前往 GitHub';
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
+
       render();
+      updateStarCount();
     })();
   </script>
 </body>
