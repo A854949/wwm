@@ -72,6 +72,10 @@
     .hole.pinned .lock-btn { color: #fff; border-color: #9a6700; background: #9a6700; }
     .gold-btn:disabled, .lock-btn:disabled { cursor: not-allowed; color: #94a3b8; border-color: #cbd5e1; background: #e2e8f0; }
     .progress-note { margin: -16px 0 24px; padding: 10px 12px; border-left: 4px solid var(--green); background: var(--green-soft); color: #365848; font-size: 13px; }
+    .progress-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: stretch; margin: -16px 0 24px; }
+    .progress-row .progress-note { margin: 0; }
+    .critical-unlock { padding-inline: 16px; color: #774b0c; border-color: #e3b45b; background: var(--gold-soft); }
+    .critical-unlock:hover { background: #ffefbe; }
     .stone-panel { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; margin: 0 0 24px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fafcfd; }
     .field label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
     .field input { width: 100%; padding: 10px 11px; border: 1px solid #b8c4d1; border-radius: 7px; background: #fff; font: inherit; }
@@ -112,6 +116,7 @@
       .hole-actions { padding: 8px; }
       .history-head { align-items: flex-start; flex-direction: column; }
       .stone-panel { grid-template-columns: 1fr; }
+      .progress-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -140,7 +145,7 @@
 
       <div class="section-title"><h2>五孔目前計數</h2></div>
       <div class="holes" id="holes"></div>
-      <div class="progress-note" id="unlockProgress"></div>
+      <div class="progress-row"><div class="progress-note" id="unlockProgress"></div><button class="secondary critical-unlock" id="criticalUnlock" type="button">暴擊開下一孔</button></div>
 
       <div class="history-head">
         <div><h2>出金歷史</h2><span class="hint" id="recordCount">共 0 筆紀錄</span></div>
@@ -167,7 +172,7 @@
     (() => {
       'use strict';
       const STORAGE_KEY = 'yysls-cangyin-five-hole-counter-v1';
-      const initialState = () => ({ counts: [0, 0, 0, 0, 0], locked: [false, false, false, false, false], total: 0, stones: 0, topupTotal: 0, sinceLastGold: 0, history: [], topups: [] });
+      const initialState = () => ({ counts: [0, 0, 0, 0, 0], locked: [false, false, false, false, false], total: 0, stones: 0, topupTotal: 0, sinceLastGold: 0, unlockedCount: 1, unlockProgress: 0, history: [], topups: [] });
       let state = load();
       let toastTimer;
 
@@ -182,12 +187,14 @@
           const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
           if (!saved || !Array.isArray(saved.counts) || saved.counts.length !== 5 || !Array.isArray(saved.history)) return initialState();
           return {
-            counts: saved.counts.map((n, i) => i === 4 || Number(saved.total) < i * 30 ? 0 : Math.max(0, Number(n) || 0)),
+            counts: saved.counts.map((n, i) => i === 4 ? 0 : Math.max(0, Number(n) || 0)),
             locked: Array.isArray(saved.locked) && saved.locked.length === 5 ? saved.locked.map((value, i) => i === 4 ? false : Boolean(value)) : [false, false, false, false, false],
             total: Math.max(0, Number(saved.total) || 0),
             stones: Math.max(0, Number(saved.stones) || 0),
             topupTotal: Math.max(0, Number(saved.topupTotal) || 0),
             sinceLastGold: Math.max(0, Number(saved.sinceLastGold) || 0),
+            unlockedCount: Math.min(5, Math.max(1, Math.trunc(Number(saved.unlockedCount) || (Math.floor((Number(saved.total) || 0) / 30) + 1)))),
+            unlockProgress: Math.min(29, Math.max(0, Math.trunc(Number.isFinite(Number(saved.unlockProgress)) ? Number(saved.unlockProgress) : (Number(saved.total) || 0) % 30))),
             history: saved.history.filter(x => x && Number.isFinite(Number(x.hole))).map(x => ({ hole: Number(x.hole), count: Number(x.count) || 0, total: Number(x.total) || 0, counts: Array.isArray(x.counts) ? x.counts.map(Number) : null, stones: Number(x.stones) || 0, clicks: Number(x.clicks) || 0, lockedCount: Number(x.lockedCount) || 0, cost: Number(x.cost) || 1 })),
             topups: Array.isArray(saved.topups) ? saved.topups : []
           };
@@ -210,7 +217,7 @@
         el.total.textContent = state.total.toLocaleString('zh-TW');
         el.stones.textContent = state.stones.toLocaleString('zh-TW');
         el.topupTotal.textContent = state.topupTotal.toLocaleString('zh-TW');
-        const unlocked = Math.min(5, Math.floor(state.total / 30) + 1);
+        const unlocked = state.unlockedCount;
         const lockedCount = state.locked.filter(Boolean).length;
         const rerollCost = [1, 2, 5, 10][lockedCount];
         document.querySelector('#reroll').textContent = `重鑄 -${rerollCost} 石頭`;
@@ -224,11 +231,13 @@
             </div>
           </article>`).join('');
         if (unlocked < 5) {
-          const target = unlocked * 30;
-          el.unlockProgress.textContent = `再重鑄 ${target - state.total} 次，將開啟孔${unlocked + 1}（總重鑄 ${target} 次）`;
+          el.unlockProgress.textContent = `目前開孔進度 ${state.unlockProgress}/30；再重鑄 ${30 - state.unlockProgress} 次，將開啟孔${unlocked + 1}`;
         } else {
           el.unlockProgress.textContent = '五個孔位已全部開啟';
         }
+        const criticalUnlock = document.querySelector('#criticalUnlock');
+        criticalUnlock.disabled = unlocked >= 5;
+        criticalUnlock.textContent = unlocked >= 5 ? '五孔已全開' : `暴擊開孔${unlocked + 1}`;
         el.recordCount.textContent = `共 ${state.history.length.toLocaleString('zh-TW')} 筆紀錄`;
         el.history.innerHTML = state.history.length
           ? [...state.history].reverse().map(x => `<tr><td>孔${x.hole}</td><td>${x.count.toLocaleString('zh-TW')}</td><td>${x.total.toLocaleString('zh-TW')}</td><td>${x.stones.toLocaleString('zh-TW')}</td><td>${x.clicks.toLocaleString('zh-TW')}</td></tr>`).join('')
@@ -239,12 +248,29 @@
         const lockedCount = state.locked.filter(Boolean).length;
         const cost = [1, 2, 5, 10][lockedCount];
         if (state.stones < cost) return showToast(`石頭不足，本次重鑄需要 ${cost} 顆`);
-        const unlockedBefore = Math.min(5, Math.floor(state.total / 30) + 1);
+        const unlockedBefore = state.unlockedCount;
         for (let i = 0; i < Math.min(unlockedBefore, 4); i++) if (!state.locked[i]) state.counts[i] += 1;
         state.total += 1;
         state.stones -= cost;
         state.sinceLastGold += 1;
-        save(); render(); showToast(`已重鑄，消耗 ${cost} 顆石頭`);
+        let openedHole = 0;
+        if (state.unlockedCount < 5) {
+          state.unlockProgress += 1;
+          if (state.unlockProgress >= 30) {
+            state.unlockedCount += 1;
+            state.unlockProgress = 0;
+            openedHole = state.unlockedCount;
+          }
+        }
+        save(); render(); showToast(openedHole ? `已重鑄並開啟孔${openedHole}` : `已重鑄，消耗 ${cost} 顆石頭`);
+      });
+
+      document.querySelector('#criticalUnlock').addEventListener('click', () => {
+        const unlocked = state.unlockedCount;
+        if (unlocked >= 5) return showToast('五個孔位已全部開啟');
+        state.unlockedCount += 1;
+        state.unlockProgress = 0;
+        save(); render(); showToast(`暴擊開啟孔${unlocked + 1}，開孔進度重新計算`);
       });
 
       el.holes.addEventListener('click', event => {
@@ -360,7 +386,7 @@
         const header = values => values.map(v => ({ v, s: 1 }));
         const progressRows = [
           header(['項目', '數值', '狀態']),
-          ['總重鑄次數', state.total, ''], ['剩餘石頭', state.stones, ''], ['累計充值石頭', state.topupTotal, ''], ['距上次出金重鑄次數', state.sinceLastGold, ''],
+          ['總重鑄次數', state.total, ''], ['剩餘石頭', state.stones, ''], ['累計充值石頭', state.topupTotal, ''], ['距上次出金重鑄次數', state.sinceLastGold, ''], ['目前已開孔數', state.unlockedCount, ''], ['目前開孔進度', state.unlockProgress, ''],
           ...state.counts.map((v, i) => [`${i + 1}孔`, i === 4 && state.total >= 120 ? '必定金' : v, state.total < i * 30 ? '未開啟' : state.locked[i] ? '已鎖定' : i === 4 ? '開孔即出金，無須鎖孔' : '使用中'])
         ];
         const historyRows = [
@@ -470,6 +496,8 @@
         imported.stones = positiveInteger(progressMap.get('剩餘石頭')?.[1]);
         imported.topupTotal = positiveInteger(progressMap.get('累計充值石頭')?.[1]);
         imported.sinceLastGold = positiveInteger(progressMap.get('距上次出金重鑄次數')?.[1]);
+        imported.unlockedCount = Math.min(5, Math.max(1, positiveInteger(progressMap.get('目前已開孔數')?.[1], Math.floor(imported.total / 30) + 1)));
+        imported.unlockProgress = imported.unlockedCount >= 5 ? 0 : Math.min(29, positiveInteger(progressMap.get('目前開孔進度')?.[1], imported.total % 30));
         for (let i = 0; i < 5; i++) {
           const row = progressMap.get(`${i + 1}孔`) || [];
           imported.counts[i] = positiveInteger(row[1]);
