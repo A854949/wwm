@@ -145,7 +145,7 @@
 
       <div class="section-title"><h2>五孔目前計數</h2></div>
       <div class="holes" id="holes"></div>
-      <div class="progress-row"><div class="progress-note" id="unlockProgress"></div><button class="secondary critical-unlock" id="criticalUnlock" type="button">提前開下一孔</button></div>
+      <div class="progress-row"><div class="progress-note" id="unlockProgress"></div><button class="secondary critical-unlock" id="criticalUnlock" type="button">暴擊提前開孔</button></div>
 
       <div class="history-head">
         <div><h2>出金歷史</h2><span class="hint" id="recordCount">共 0 筆紀錄</span></div>
@@ -237,7 +237,7 @@
         }
         const criticalUnlock = document.querySelector('#criticalUnlock');
         criticalUnlock.disabled = unlocked >= 5;
-        criticalUnlock.textContent = unlocked >= 5 ? '五孔已全開' : '提前開下一孔';
+        criticalUnlock.textContent = unlocked >= 5 ? '五孔已全開' : '暴擊提前開孔';
         el.recordCount.textContent = `共 ${state.history.length.toLocaleString('zh-TW')} 筆紀錄`;
         el.history.innerHTML = state.history.length
           ? [...state.history].reverse().map(x => `<tr><td>孔${x.hole}</td><td>${x.count.toLocaleString('zh-TW')}</td><td>${x.total.toLocaleString('zh-TW')}</td><td>${x.stones.toLocaleString('zh-TW')}</td><td>${x.clicks.toLocaleString('zh-TW')}</td></tr>`).join('')
