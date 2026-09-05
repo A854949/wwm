@@ -279,7 +279,7 @@
           </article>`;
         }).join('');
         if (unlocked < 5) {
-          el.unlockProgress.textContent = `目前開孔進度 ${state.unlockProgress}/30；再重鑄 ${30 - state.unlockProgress} 次，將開啟孔${unlocked + 1}`;
+          el.unlockProgress.textContent = `目前開孔進度 ${state.unlockProgress}/30；再重鑄 ${30 - state.unlockProgress} 次，將開啟${unlocked + 1}孔`;
         } else {
           el.unlockProgress.textContent = '五個孔位已全部開啟';
         }
@@ -298,12 +298,12 @@
       }
 
       function goldHoles(x) {
-        return [...new Set((Array.isArray(x.holes) ? x.holes : [x.hole]).map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 5))].sort((a, b) => a - b);
+        return [...new Set((Array.isArray(x.holes) ? x.holes : [x.hole]).map(value => Number(String(value).replace(/孔/g, ''))).filter(n => Number.isInteger(n) && n >= 1 && n <= 5))].sort((a, b) => a - b);
       }
 
       function historyValues(x) {
         const counts = Array.from({ length: 4 }, (_, i) => x.counts?.[i] ?? (i + 1 === x.hole ? x.count : ''));
-        return [...counts, x.stones, goldHoles(x).join('、'), x.total, x.lockedCount, x.cost];
+        return [...counts, x.stones, goldHoles(x).map(hole => `${hole}孔`).join('、'), x.total, x.lockedCount, x.cost];
       }
 
       function selectedPlanHoles() {
@@ -315,7 +315,7 @@
         const lockedCount = state.locked.filter(Boolean).length;
         const holes = selectedPlanHoles();
         document.querySelector('#planStones').textContent = state.stones.toLocaleString('zh-TW');
-        document.querySelector('#planGoldHoles').textContent = holes.length ? holes.join('、') : '請勾選';
+        document.querySelector('#planGoldHoles').textContent = holes.length ? holes.map(hole => `${hole}孔`).join('、') : '請勾選';
         document.querySelector('#planTotal').textContent = state.total.toLocaleString('zh-TW');
         document.querySelector('#planLockedCount').textContent = lockedCount.toLocaleString('zh-TW');
         document.querySelector('#planCost').textContent = [1, 2, 5, 10][lockedCount].toLocaleString('zh-TW');
@@ -355,7 +355,7 @@
         document.querySelector('#openPlanEditor').hidden = false;
         document.querySelector('#planActionButtons').hidden = true;
         save(); render();
-        showToast(`已應用暫存方案：${holes.join('、')}孔出金`);
+        showToast(`已應用暫存方案：${holes.map(hole => `${hole}孔`).join('、')}出金`);
       });
 
       document.querySelector('#reroll').addEventListener('click', () => {
@@ -376,7 +376,7 @@
             openedHole = state.unlockedCount;
           }
         }
-        save(); render(); showToast(openedHole ? `已重鑄並開啟孔${openedHole}` : `已重鑄，消耗 ${cost} 顆石頭`);
+        save(); render(); showToast(openedHole ? `已重鑄並開啟${openedHole}孔` : `已重鑄，消耗 ${cost} 顆石頭`);
       });
 
       document.querySelector('#criticalUnlock').addEventListener('click', () => {
@@ -384,7 +384,7 @@
         if (unlocked >= 5) return showToast('五個孔位已全部開啟');
         state.unlockedCount += 1;
         state.unlockProgress = 0;
-        save(); render(); showToast(`已提前開啟孔${unlocked + 1}，開孔進度重新計算`);
+        save(); render(); showToast(`已提前開啟${unlocked + 1}孔，開孔進度重新計算`);
       });
 
       el.holes.addEventListener('click', event => {
@@ -402,7 +402,7 @@
             const latest = state.history[state.history.length - 1];
             if (latest) latest.lockedHoles = (latest.lockedHoles || []).filter(hole => hole !== index + 1);
           }
-          save(); render(); showToast(`孔${index + 1}已${state.locked[index] ? '鎖定' : '解鎖'}`);
+          save(); render(); showToast(`${index + 1}孔已${state.locked[index] ? '鎖定' : '解鎖'}`);
           return;
         }
         if (!goldButton) return;
@@ -419,14 +419,14 @@
             state.history.pop();
             state.sinceLastGold = Math.max(0, Number(latest.clicks) || 0);
           }
-          save(); render(); showToast(`已取消孔${index + 1}出金，次數恢復為 ${state.counts[index]}`);
+          save(); render(); showToast(`已取消${index + 1}孔出金，次數恢復為 ${state.counts[index]}`);
           return;
         }
         const snapshot = [...state.counts];
         const lockedCount = state.locked.filter(Boolean).length;
         const previous = state.history[state.history.length - 1];
         if (previous && previous.total === state.total && !previous.appliedPlan) {
-          if (goldHoles(previous).includes(index + 1)) return showToast(`孔${index + 1}本次已記錄出金`);
+          if (goldHoles(previous).includes(index + 1)) return showToast(`${index + 1}孔本次已記錄出金`);
           previous.holes = [...goldHoles(previous), index + 1].sort((a, b) => a - b);
           if (!previous.counts) previous.counts = [...snapshot];
           previous.counts[index] = state.counts[index];
@@ -436,7 +436,7 @@
         const recorded = state.counts[index];
         state.counts[index] = 0;
         state.sinceLastGold = 0;
-        save(); render(); showToast(`孔${index + 1} 已記錄：第 ${recorded} 抽出金`);
+        save(); render(); showToast(`${index + 1}孔已記錄：第 ${recorded} 抽出金`);
       });
 
       function readInteger(selector, allowZero = false) {
