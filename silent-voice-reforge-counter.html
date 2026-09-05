@@ -100,6 +100,9 @@
     th:nth-child(n+2), td:nth-child(n+2) { text-align: right; }
     td { padding: 10px 12px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
     tbody tr:nth-child(even) { background: #f8fafc; }
+    #history td { text-align: right; }
+    #history .gold-cell { background: #ffe699; color: #1f2937; }
+    .table-wrap th { white-space: nowrap; }
     .empty td { padding: 28px; color: var(--muted); text-align: center !important; }
     .footer { padding: 12px 24px; color: var(--muted); background: #f8fafc; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 14px 14px; font-size: 12px; }
 
@@ -165,7 +168,7 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>孔位</th><th>第幾抽出金</th><th>總重鑄第幾次</th><th>剩餘石頭</th><th>本段重鑄</th></tr></thead>
+          <thead><tr><th>1孔</th><th>2孔</th><th>3孔</th><th>4孔</th><th>剩餘石頭</th><th>出金孔位</th><th>總重鑄次數</th><th>鎖孔數</th><th>每次耗石</th></tr></thead>
           <tbody id="history"></tbody>
         </table>
       </div>
@@ -246,8 +249,13 @@
         criticalUnlock.textContent = unlocked >= 5 ? '五孔已全開' : '暴擊提前開孔';
         el.recordCount.textContent = `共 ${state.history.length.toLocaleString('zh-TW')} 筆紀錄`;
         el.history.innerHTML = state.history.length
-          ? [...state.history].reverse().map(x => `<tr><td>孔${x.hole}</td><td>${x.count.toLocaleString('zh-TW')}</td><td>${x.total.toLocaleString('zh-TW')}</td><td>${x.stones.toLocaleString('zh-TW')}</td><td>${x.clicks.toLocaleString('zh-TW')}</td></tr>`).join('')
-          : '<tr class="empty"><td colspan="5">尚無出金紀錄</td></tr>';
+          ? state.history.map(x => `<tr>${historyValues(x).map((v, i) => `<td${i < 4 && i + 1 === x.hole ? ' class="gold-cell"' : ''}>${typeof v === 'number' ? v.toLocaleString('zh-TW') : ''}</td>`).join('')}</tr>`).join('')
+          : '<tr class="empty"><td colspan="9">尚無出金紀錄</td></tr>';
+      }
+
+      function historyValues(x) {
+        const counts = Array.from({ length: 4 }, (_, i) => x.counts?.[i] ?? (i + 1 === x.hole ? x.count : ''));
+        return [...counts, x.stones, x.hole, x.total, x.lockedCount, x.cost];
       }
 
       document.querySelector('#reroll').addEventListener('click', () => {
@@ -396,11 +404,8 @@
           ...state.counts.map((v, i) => [`${i + 1}孔`, i === 4 && state.total >= 120 ? '必定金' : v, state.total < i * 30 ? '未開啟' : state.locked[i] ? '已鎖定' : i === 4 ? '開孔即出金，無須鎖孔' : '使用中'])
         ];
         const historyRows = [
-          header(['次數', '1孔', '2孔', '3孔', '4孔', '5孔', '剩餘石頭', '距上次出金重鑄次數', '出金孔位', '總重鑄次數', '鎖孔數', '每次耗石']),
-          ...state.history.map((x, i) => {
-            const values = x.counts || ['', '', '', '', ''];
-            return [i + 1, ...values.map((v, j) => ({ v, s: j + 1 === x.hole ? 2 : 0 })), x.stones, x.clicks, x.hole, x.total, x.lockedCount, x.cost];
-          })
+          header(['1孔', '2孔', '3孔', '4孔', '剩餘石頭', '出金孔位', '總重鑄次數', '鎖孔數', '每次耗石']),
+          ...state.history.map(x => historyValues(x).map((v, j) => ({ v, s: j < 4 && j + 1 === x.hole ? 2 : 0 })))
         ];
         const topupRows = [
           header(['次數', '充值石頭數', '充值後剩餘石頭', '當時總重鑄次數', '時間']),
@@ -413,7 +418,7 @@
           'xl/_rels/workbook.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
           'xl/styles.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF217346"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFE699"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/></cellXfs></styleSheet>`,
           'xl/worksheets/sheet1.xml': sheetXml(progressRows, [22, 14, 16]),
-          'xl/worksheets/sheet2.xml': sheetXml(historyRows, [10, 10, 10, 10, 10, 10, 14, 22, 12, 16, 10, 12]),
+          'xl/worksheets/sheet2.xml': sheetXml(historyRows, [10, 10, 10, 10, 14, 12, 16, 10, 12]),
           'xl/worksheets/sheet3.xml': sheetXml(topupRows, [10, 16, 20, 20, 24])
         };
         const blob = new Blob([zipFiles(files)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -509,13 +514,19 @@
           imported.counts[i] = positiveInteger(row[1]);
           imported.locked[i] = i < 4 && String(row[2] ?? '').trim() === '已鎖定';
         }
-        imported.history = historyRows.slice(1).filter(row => row.some(value => value !== '' && value != null)).map(row => ({
-          hole: Math.min(5, Math.max(1, positiveInteger(row[8], 1))),
-          count: positiveInteger(row[positiveInteger(row[8], 1)]),
-          total: positiveInteger(row[9]), counts: row.slice(1, 6).map(value => positiveInteger(value)),
-          stones: positiveInteger(row[6]), clicks: positiveInteger(row[7]),
-          lockedCount: Math.min(3, positiveInteger(row[10])), cost: positiveInteger(row[11], 1) || 1
-        }));
+        const historyHeaders = (historyRows[0] || []).map(value => String(value).trim());
+        const cell = (row, name) => row[historyHeaders.indexOf(name)];
+        if (!['1孔', '2孔', '3孔', '4孔', '剩餘石頭', '出金孔位', '總重鑄次數', '鎖孔數', '每次耗石'].every(name => historyHeaders.includes(name))) throw new Error('出金紀錄缺少必要欄位');
+        let previousTotal = 0;
+        imported.history = historyRows.slice(1).filter(row => row.some(value => value !== '' && value != null)).map(row => {
+          const hole = Math.min(5, Math.max(1, positiveInteger(cell(row, '出金孔位'), 1)));
+          const total = positiveInteger(cell(row, '總重鑄次數'));
+          const counts = Array.from({ length: 5 }, (_, i) => positiveInteger(cell(row, `${i + 1}孔`)));
+          const clicks = positiveInteger(cell(row, '距上次出金重鑄次數'), Math.max(0, total - previousTotal));
+          previousTotal = total;
+          return { hole, count: counts[hole - 1], total, counts, stones: positiveInteger(cell(row, '剩餘石頭')), clicks,
+            lockedCount: Math.min(3, positiveInteger(cell(row, '鎖孔數'))), cost: positiveInteger(cell(row, '每次耗石'), 1) || 1 };
+        });
         imported.topups = topupRows.slice(1).filter(row => row.some(value => value !== '' && value != null)).map(row => ({
           amount: positiveInteger(row[1]), stones: positiveInteger(row[2]), total: positiveInteger(row[3]), time: String(row[4] ?? '')
         }));
