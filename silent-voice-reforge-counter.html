@@ -413,26 +413,21 @@
         const header = values => values.map(v => ({ v, s: 1 }));
         const progressRows = [
           header(['項目', '數值', '狀態']),
-          ['總重鑄次數', state.total, ''], ['剩餘石頭', state.stones, ''], ['累計充值石頭', state.topupTotal, ''], ['距上次出金重鑄次數', state.sinceLastGold, ''], ['目前已開孔數', state.unlockedCount, ''], ['目前開孔進度', state.unlockProgress, ''],
-          ...state.counts.map((v, i) => [`${i + 1}孔`, i === 4 && state.total >= 120 ? '必定金' : v, state.total < i * 30 ? '未開啟' : state.locked[i] ? '已鎖定' : i === 4 ? '開孔即出金，無須鎖孔' : '使用中'])
+          ['總重鑄次數', state.total, ''], ['剩餘石頭', state.stones, ''], ['累計充值石頭', state.topupTotal, ''], ['目前已開孔數', state.unlockedCount, ''],
+          ...state.counts.map((v, i) => [`${i + 1}孔`, i === 4 && state.unlockedCount >= 5 ? '必定金' : v, i >= state.unlockedCount ? '未開啟' : state.locked[i] ? '已鎖定' : i === 4 ? '開孔即出金，無須鎖孔' : '使用中'])
         ];
         const historyRows = [
           header(['1孔', '2孔', '3孔', '4孔', '剩餘石頭', '出金孔位', '總重鑄次數', '鎖孔數', '每次耗石']),
           ...state.history.map(x => historyValues(x).map((v, j) => ({ v, s: j < 4 && goldHoles(x).includes(j + 1) ? 2 : 0 })))
         ];
-        const topupRows = [
-          header(['次數', '充值石頭數', '充值後剩餘石頭', '當時總重鑄次數', '時間']),
-          ...state.topups.map((x, i) => [i + 1, Number(x.amount) || 0, Number(x.stones) || 0, Number(x.total) || 0, x.time || ''])
-        ];
         const files = {
-          '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`,
+          '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`,
           '_rels/.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
-          'xl/workbook.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="目前進度" sheetId="1" r:id="rId1"/><sheet name="出金紀錄" sheetId="2" r:id="rId2"/><sheet name="充值紀錄" sheetId="3" r:id="rId3"/></sheets></workbook>`,
-          'xl/_rels/workbook.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+          'xl/workbook.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="出金紀錄" sheetId="2" r:id="rId2"/><sheet name="目前統計" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_CounterSinceGold" hidden="1">${state.sinceLastGold}</definedName><definedName name="_CounterUnlockProgress" hidden="1">${state.unlockProgress}</definedName></definedNames></workbook>`,
+          'xl/_rels/workbook.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
           'xl/styles.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF217346"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFE699"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/></cellXfs></styleSheet>`,
           'xl/worksheets/sheet1.xml': sheetXml(progressRows, [22, 14, 16]),
-          'xl/worksheets/sheet2.xml': sheetXml(historyRows, [10, 10, 10, 10, 14, 12, 16, 10, 12]),
-          'xl/worksheets/sheet3.xml': sheetXml(topupRows, [10, 16, 20, 20, 24])
+          'xl/worksheets/sheet2.xml': sheetXml(historyRows, [10, 10, 10, 10, 14, 12, 16, 10, 12])
         };
         const blob = new Blob([zipFiles(files)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const link = document.createElement('a');
@@ -510,18 +505,31 @@
           const sharedDoc = new DOMParser().parseFromString(decode('xl/sharedStrings.xml'), 'application/xml');
           sharedStrings = [...sharedDoc.querySelectorAll('si')].map(si => [...si.querySelectorAll('t')].map(t => t.textContent).join(''));
         }
-        const progress = readSheet(decode('xl/worksheets/sheet1.xml'), sharedStrings);
-        const historyRows = readSheet(decode('xl/worksheets/sheet2.xml'), sharedStrings);
-        const topupRows = files['xl/worksheets/sheet3.xml'] ? readSheet(decode('xl/worksheets/sheet3.xml'), sharedStrings) : [];
+        const workbook = new DOMParser().parseFromString(decode('xl/workbook.xml'), 'application/xml');
+        const relations = new DOMParser().parseFromString(decode('xl/_rels/workbook.xml.rels'), 'application/xml');
+        const getRows = names => {
+          const sheet = [...workbook.querySelectorAll('sheet')].find(s => names.includes(s.getAttribute('name')));
+          if (!sheet) return [];
+          const id = sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+          const relation = [...relations.querySelectorAll('Relationship')].find(r => r.getAttribute('Id') === id);
+          const target = relation?.getAttribute('Target');
+          if (!target) throw new Error('工作表連結不完整');
+          const path = new URL(target, 'https://xlsx.local/xl/workbook.xml').pathname.slice(1);
+          return readSheet(decode(path), sharedStrings);
+        };
+        const metadata = new Map([...workbook.querySelectorAll('definedName')].map(n => [n.getAttribute('name'), n.textContent]));
+        const progress = getRows(['目前統計', '目前進度']);
+        const historyRows = getRows(['出金紀錄']);
+        const topupRows = getRows(['充值紀錄']);
         if (!progress.length || String(progress[0][0]).trim() !== '項目') throw new Error('找不到「目前進度」資料，請選擇本計數器匯出的 Excel');
         const progressMap = new Map(progress.slice(1).map(row => [String(row[0] ?? '').trim(), row]));
         const imported = initialState();
         imported.total = positiveInteger(progressMap.get('總重鑄次數')?.[1]);
         imported.stones = positiveInteger(progressMap.get('剩餘石頭')?.[1]);
         imported.topupTotal = positiveInteger(progressMap.get('累計充值石頭')?.[1]);
-        imported.sinceLastGold = positiveInteger(progressMap.get('距上次出金重鑄次數')?.[1]);
+        imported.sinceLastGold = positiveInteger(progressMap.get('距上次出金重鑄次數')?.[1] ?? metadata.get('_CounterSinceGold'));
         imported.unlockedCount = Math.min(5, Math.max(1, positiveInteger(progressMap.get('目前已開孔數')?.[1], Math.floor(imported.total / 30) + 1)));
-        imported.unlockProgress = imported.unlockedCount >= 5 ? 0 : Math.min(29, positiveInteger(progressMap.get('目前開孔進度')?.[1], imported.total % 30));
+        imported.unlockProgress = imported.unlockedCount >= 5 ? 0 : Math.min(29, positiveInteger(progressMap.get('目前開孔進度')?.[1] ?? metadata.get('_CounterUnlockProgress'), imported.total % 30));
         for (let i = 0; i < 5; i++) {
           const row = progressMap.get(`${i + 1}孔`) || [];
           imported.counts[i] = positiveInteger(row[1]);
