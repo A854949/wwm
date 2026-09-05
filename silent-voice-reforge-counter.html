@@ -68,6 +68,8 @@
     .gold-btn, .lock-btn { width: 100%; padding: 9px 6px; border-radius: 7px; font-weight: 800; }
     .gold-btn { border: 1px solid #e3b45b; color: #774b0c; background: var(--gold-soft); }
     .gold-btn:hover { background: #ffefbe; }
+    .gold-btn.cancel-gold { border-color: #fca5a5; color: #b91c1c; background: #fef2f2; }
+    .gold-btn.cancel-gold:hover { background: #fee2e2; }
     .lock-btn { border: 1px solid #9aa8b8; color: #475569; background: #f8fafc; }
     .lock-btn:hover { background: #e2e8f0; }
     .hole.unavailable { background: #f1f5f9; color: #94a3b8; }
@@ -199,7 +201,7 @@
         <div class="plan-buttons" id="planActionButtons" hidden><button class="secondary" id="confirmPlan" type="button">應用</button><button class="secondary" id="cancelPlan" type="button">取消</button></div>
       </div>
     </section>
-    <footer class="footer">提示：重鑄後若有出金，再按對應孔位的「出金」；該孔會記錄並歸 0。</footer>
+    <footer class="footer">提示：重鑄後若有出金，再按對應孔位的「出金」；若按錯，可在下一次重鑄前按「取消出金」恢復。</footer>
   </main>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -263,15 +265,19 @@
         const lockedCount = state.locked.filter(Boolean).length;
         const rerollCost = [1, 2, 5, 10][lockedCount];
         document.querySelector('#reroll').textContent = `重鑄 -${rerollCost} 石頭`;
-        el.holes.innerHTML = state.counts.map((count, i) => `
+        const latestGold = state.history[state.history.length - 1];
+        el.holes.innerHTML = state.counts.map((count, i) => {
+          const canCancelGold = Boolean(latestGold && latestGold.total === state.total && !latestGold.appliedPlan && goldHoles(latestGold).includes(i + 1));
+          return `
           <article class="hole ${i >= unlocked ? 'unavailable' : ''} ${state.locked[i] ? 'pinned' : ''}">
             <div class="hole-name">${i + 1}孔</div>
             <div><div class="count">${i >= unlocked ? '尚未開啟' : i === 4 ? '必定金' : count.toLocaleString('zh-TW')}</div><div class="unit">${i >= unlocked ? `總重鑄 ${i * 30} 次開啟` : state.locked[i] ? '已鎖定，不再累計' : i === 4 ? '開孔即出金，無須重鑄' : '目前重鑄次數'}</div></div>
             <div class="hole-actions">
-              <button class="gold-btn" type="button" data-gold="${i}" ${i >= unlocked || state.locked[i] || i === 4 ? 'disabled' : ''}>${i >= unlocked ? '鎖定' : i === 4 ? '必定金' : '出金'}</button>
+              <button class="gold-btn${canCancelGold ? ' cancel-gold' : ''}" type="button" data-gold="${i}" ${!canCancelGold && (i >= unlocked || state.locked[i] || i === 4) ? 'disabled' : ''}>${canCancelGold ? '取消出金' : i >= unlocked ? '鎖定' : i === 4 ? '必定金' : '出金'}</button>
               <button class="lock-btn" type="button" data-lock="${i}" ${i >= unlocked || i === 4 ? 'disabled' : ''}>${i === 4 && i < unlocked ? '無須鎖孔' : state.locked[i] ? '解鎖' : '鎖孔'}</button>
             </div>
-          </article>`).join('');
+          </article>`;
+        }).join('');
         if (unlocked < 5) {
           el.unlockProgress.textContent = `目前開孔進度 ${state.unlockProgress}/30；再重鑄 ${30 - state.unlockProgress} 次，將開啟孔${unlocked + 1}`;
         } else {
@@ -401,6 +407,21 @@
         }
         if (!goldButton) return;
         const index = Number(goldButton.dataset.gold);
+        const latest = state.history[state.history.length - 1];
+        if (latest && latest.total === state.total && !latest.appliedPlan && goldHoles(latest).includes(index + 1)) {
+          const remainingHoles = goldHoles(latest).filter(hole => hole !== index + 1);
+          state.counts[index] = Math.max(0, Number(latest.counts?.[index] ?? latest.count) || 0);
+          if (remainingHoles.length) {
+            latest.holes = remainingHoles;
+            latest.hole = remainingHoles[0];
+            latest.count = Math.max(0, Number(latest.counts?.[latest.hole - 1]) || 0);
+          } else {
+            state.history.pop();
+            state.sinceLastGold = Math.max(0, Number(latest.clicks) || 0);
+          }
+          save(); render(); showToast(`已取消孔${index + 1}出金，次數恢復為 ${state.counts[index]}`);
+          return;
+        }
         const snapshot = [...state.counts];
         const lockedCount = state.locked.filter(Boolean).length;
         const previous = state.history[state.history.length - 1];
