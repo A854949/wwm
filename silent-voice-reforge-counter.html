@@ -224,6 +224,10 @@
       }
 
       function render() {
+        // Older records may not include lock markers. Preserve the known current
+        // locks on the latest row without guessing when earlier locks began.
+        const latest = state.history[state.history.length - 1];
+        if (latest) latest.lockedHoles = [...new Set([...(latest.lockedHoles || []), ...state.locked.flatMap((locked, i) => locked ? [i + 1] : [])])];
         el.total.textContent = state.total.toLocaleString('zh-TW');
         el.stones.textContent = state.stones.toLocaleString('zh-TW');
         el.topupTotal.textContent = state.topupTotal.toLocaleString('zh-TW');
@@ -250,7 +254,7 @@
         criticalUnlock.textContent = unlocked >= 5 ? '五孔已全開' : '暴擊提前開孔';
         el.recordCount.textContent = `共 ${state.history.length.toLocaleString('zh-TW')} 筆紀錄`;
         el.history.innerHTML = state.history.length
-          ? state.history.map(x => `<tr>${historyValues(x).map((v, i) => `<td${i < 4 && goldHoles(x).includes(i + 1) ? ' class="gold-cell"' : ''}>${typeof v === 'number' ? v.toLocaleString('zh-TW') : xml(v)}${i < 4 && (x.lockedHoles || []).includes(i + 1) ? ' <span aria-label="曾鎖孔" title="此孔出金後曾鎖孔">🔒</span>' : ''}</td>`).join('')}</tr>`).join('')
+          ? state.history.map(x => `<tr>${historyValues(x).map((v, i) => `<td${i < 4 && goldHoles(x).includes(i + 1) ? ' class="gold-cell"' : ''}>${typeof v === 'number' ? v.toLocaleString('zh-TW') : xml(v)}${i < 4 && (x.lockedHoles || []).includes(i + 1) ? ' <span aria-label="曾鎖孔" title="此孔曾鎖定">🔒</span>' : ''}</td>`).join('')}</tr>`).join('')
           : '<tr class="empty"><td colspan="9">尚無出金紀錄</td></tr>';
       }
 
@@ -300,7 +304,7 @@
           if (!state.locked[index] && state.locked.filter(Boolean).length >= 3) return showToast('最多只能鎖定三個孔位');
           state.locked[index] = !state.locked[index];
           if (state.locked[index]) {
-            const record = [...state.history].reverse().find(x => goldHoles(x).includes(index + 1));
+            const record = [...state.history].reverse().find(x => goldHoles(x).includes(index + 1)) || state.history[state.history.length - 1];
             if (record) record.lockedHoles = [...new Set([...(record.lockedHoles || []), index + 1])];
           }
           save(); render(); showToast(`孔${index + 1}已${state.locked[index] ? '鎖定' : '解鎖'}`);
