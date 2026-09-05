@@ -36,7 +36,12 @@
     }
     .titlebar h1 { margin: 0; font-size: clamp(20px, 3vw, 30px); letter-spacing: .04em; }
     .titlebar p { margin: 5px 0 0; opacity: .85; font-size: 13px; }
+    .title-actions { display: flex; align-items: center; gap: 12px; }
     .save-state { white-space: nowrap; font-size: 13px; opacity: .9; }
+    .github-star { display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 8px 13px; border: 1px solid #ffffff70; border-radius: 8px; color: #fff; background: #ffffff18; font-size: 13px; font-weight: 800; text-decoration: none; white-space: nowrap; transition: background .15s, transform .08s; }
+    .github-star:hover { background: #ffffff30; }
+    .github-star:active { transform: translateY(1px); }
+    .github-star:focus-visible { outline: 3px solid #facc15; outline-offset: 2px; }
     .sheet { background: var(--panel); border: 1px solid var(--line); border-top: 0; padding: 24px; }
 
     .toolbar { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: stretch; margin-bottom: 22px; }
@@ -124,7 +129,7 @@
   <main class="app">
     <header class="titlebar">
       <div><h1>燕雲十六聲・藏音五孔計數器</h1><p>單頁離線版｜資料自動保存在此瀏覽器</p></div>
-      <div class="save-state" id="saveState">✓ 已自動保存</div>
+      <div class="title-actions"><div class="save-state" id="saveState">✓ 已自動保存</div><a class="github-star" href="https://github.com/A854949/wwm" target="_blank" rel="noopener noreferrer" aria-label="前往 GitHub 為 A854949/wwm 按星星">⭐ GitHub Star</a></div>
     </header>
 
     <section class="sheet">
