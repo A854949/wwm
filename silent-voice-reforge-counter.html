@@ -196,16 +196,24 @@
         try {
           const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
           if (!saved || !Array.isArray(saved.counts) || saved.counts.length !== 5 || !Array.isArray(saved.history)) return initialState();
+          const locked = Array.isArray(saved.locked) && saved.locked.length === 5 ? saved.locked.map((value, i) => i === 4 ? false : Boolean(value)) : [false, false, false, false, false];
+          const history = saved.history.filter(x => x && Number.isFinite(Number(x.hole))).map(x => ({ hole: Number(x.hole), holes: goldHoles(x), lockedHoles: goldHoles({ holes: x.lockedHoles || [] }), count: Number(x.count) || 0, total: Number(x.total) || 0, counts: Array.isArray(x.counts) ? x.counts.map(Number) : null, stones: Number(x.stones) || 0, clicks: Number(x.clicks) || 0, lockedCount: Number(x.lockedCount) || 0, cost: Number(x.cost) || 1 }));
+          const counts = saved.counts.map((n, i) => i === 4 ? 0 : Math.max(0, Number(n) || 0));
+          locked.forEach((isLocked, i) => {
+            if (!isLocked || counts[i] !== 0) return;
+            const record = [...history].reverse().find(x => goldHoles(x).includes(i + 1));
+            if (record) counts[i] = Math.max(0, Number(record.counts?.[i] ?? record.count) || 0);
+          });
           return {
-            counts: saved.counts.map((n, i) => i === 4 ? 0 : Math.max(0, Number(n) || 0)),
-            locked: Array.isArray(saved.locked) && saved.locked.length === 5 ? saved.locked.map((value, i) => i === 4 ? false : Boolean(value)) : [false, false, false, false, false],
+            counts,
+            locked,
             total: Math.max(0, Number(saved.total) || 0),
             stones: Math.max(0, Number(saved.stones) || 0),
             topupTotal: Math.max(0, Number(saved.topupTotal) || 0),
             sinceLastGold: Math.max(0, Number(saved.sinceLastGold) || 0),
             unlockedCount: Math.min(5, Math.max(1, Math.trunc(Number(saved.unlockedCount) || (Math.floor((Number(saved.total) || 0) / 30) + 1)))),
             unlockProgress: Math.min(29, Math.max(0, Math.trunc(Number.isFinite(Number(saved.unlockProgress)) ? Number(saved.unlockProgress) : (Number(saved.total) || 0) % 30))),
-            history: saved.history.filter(x => x && Number.isFinite(Number(x.hole))).map(x => ({ hole: Number(x.hole), holes: goldHoles(x), lockedHoles: goldHoles({ holes: x.lockedHoles || [] }), count: Number(x.count) || 0, total: Number(x.total) || 0, counts: Array.isArray(x.counts) ? x.counts.map(Number) : null, stones: Number(x.stones) || 0, clicks: Number(x.clicks) || 0, lockedCount: Number(x.lockedCount) || 0, cost: Number(x.cost) || 1 })),
+            history,
             topups: Array.isArray(saved.topups) ? saved.topups : []
           };
         } catch { return initialState(); }
@@ -308,8 +316,10 @@
           if (!state.locked[index] && state.locked.filter(Boolean).length >= 3) return showToast('最多只能鎖定三個孔位');
           state.locked[index] = !state.locked[index];
           if (state.locked[index]) {
-            const record = [...state.history].reverse().find(x => goldHoles(x).includes(index + 1)) || state.history[state.history.length - 1];
+            const goldRecord = [...state.history].reverse().find(x => goldHoles(x).includes(index + 1));
+            const record = goldRecord || state.history[state.history.length - 1];
             if (record) record.lockedHoles = [...new Set([...(record.lockedHoles || []), index + 1])];
+            if (goldRecord) state.counts[index] = Math.max(0, Number(goldRecord.counts?.[index] ?? goldRecord.count) || 0);
           } else {
             const latest = state.history[state.history.length - 1];
             if (latest) latest.lockedHoles = (latest.lockedHoles || []).filter(hole => hole !== index + 1);
