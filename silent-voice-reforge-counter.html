@@ -237,7 +237,7 @@
         document.querySelector('#reroll').textContent = `重鑄 -${rerollCost} 石頭`;
         el.holes.innerHTML = state.counts.map((count, i) => `
           <article class="hole ${i >= unlocked ? 'unavailable' : ''} ${state.locked[i] ? 'pinned' : ''}">
-            <div class="hole-name">孔${i + 1}</div>
+            <div class="hole-name">${i + 1}孔</div>
             <div><div class="count">${i >= unlocked ? '尚未開啟' : i === 4 ? '必定金' : count.toLocaleString('zh-TW')}</div><div class="unit">${i >= unlocked ? `總重鑄 ${i * 30} 次開啟` : state.locked[i] ? '已鎖定，不再累計' : i === 4 ? '開孔即出金，無須重鑄' : '目前重鑄次數'}</div></div>
             <div class="hole-actions">
               <button class="gold-btn" type="button" data-gold="${i}" ${i >= unlocked || state.locked[i] || i === 4 ? 'disabled' : ''}>${i >= unlocked ? '鎖定' : i === 4 ? '必定金' : '出金'}</button>
