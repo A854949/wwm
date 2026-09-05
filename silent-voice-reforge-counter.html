@@ -205,7 +205,7 @@
             sinceLastGold: Math.max(0, Number(saved.sinceLastGold) || 0),
             unlockedCount: Math.min(5, Math.max(1, Math.trunc(Number(saved.unlockedCount) || (Math.floor((Number(saved.total) || 0) / 30) + 1)))),
             unlockProgress: Math.min(29, Math.max(0, Math.trunc(Number.isFinite(Number(saved.unlockProgress)) ? Number(saved.unlockProgress) : (Number(saved.total) || 0) % 30))),
-            history: saved.history.filter(x => x && Number.isFinite(Number(x.hole))).map(x => ({ hole: Number(x.hole), holes: goldHoles(x), count: Number(x.count) || 0, total: Number(x.total) || 0, counts: Array.isArray(x.counts) ? x.counts.map(Number) : null, stones: Number(x.stones) || 0, clicks: Number(x.clicks) || 0, lockedCount: Number(x.lockedCount) || 0, cost: Number(x.cost) || 1 })),
+            history: saved.history.filter(x => x && Number.isFinite(Number(x.hole))).map(x => ({ hole: Number(x.hole), holes: goldHoles(x), lockedHoles: goldHoles({ holes: x.lockedHoles || [] }), count: Number(x.count) || 0, total: Number(x.total) || 0, counts: Array.isArray(x.counts) ? x.counts.map(Number) : null, stones: Number(x.stones) || 0, clicks: Number(x.clicks) || 0, lockedCount: Number(x.lockedCount) || 0, cost: Number(x.cost) || 1 })),
             topups: Array.isArray(saved.topups) ? saved.topups : []
           };
         } catch { return initialState(); }
@@ -250,7 +250,7 @@
         criticalUnlock.textContent = unlocked >= 5 ? '五孔已全開' : '暴擊提前開孔';
         el.recordCount.textContent = `共 ${state.history.length.toLocaleString('zh-TW')} 筆紀錄`;
         el.history.innerHTML = state.history.length
-          ? state.history.map(x => `<tr>${historyValues(x).map((v, i) => `<td${i < 4 && goldHoles(x).includes(i + 1) ? ' class="gold-cell"' : ''}>${typeof v === 'number' ? v.toLocaleString('zh-TW') : xml(v)}</td>`).join('')}</tr>`).join('')
+          ? state.history.map(x => `<tr>${historyValues(x).map((v, i) => `<td${i < 4 && goldHoles(x).includes(i + 1) ? ' class="gold-cell"' : ''}>${typeof v === 'number' ? v.toLocaleString('zh-TW') : xml(v)}${i < 4 && (x.lockedHoles || []).includes(i + 1) ? ' <span aria-label="曾鎖孔" title="此孔出金後曾鎖孔">🔒</span>' : ''}</td>`).join('')}</tr>`).join('')
           : '<tr class="empty"><td colspan="9">尚無出金紀錄</td></tr>';
       }
 
@@ -299,6 +299,10 @@
           const index = Number(lockButton.dataset.lock);
           if (!state.locked[index] && state.locked.filter(Boolean).length >= 3) return showToast('最多只能鎖定三個孔位');
           state.locked[index] = !state.locked[index];
+          if (state.locked[index]) {
+            const record = [...state.history].reverse().find(x => goldHoles(x).includes(index + 1));
+            if (record) record.lockedHoles = [...new Set([...(record.lockedHoles || []), index + 1])];
+          }
           save(); render(); showToast(`孔${index + 1}已${state.locked[index] ? '鎖定' : '解鎖'}`);
           return;
         }
@@ -418,7 +422,7 @@
         ];
         const historyRows = [
           header(['1孔', '2孔', '3孔', '4孔', '剩餘石頭', '出金孔位', '總重鑄次數', '鎖孔數', '每次耗石']),
-          ...state.history.map(x => historyValues(x).map((v, j) => ({ v, s: j < 4 && goldHoles(x).includes(j + 1) ? 2 : 0 })))
+          ...state.history.map(x => historyValues(x).map((v, j) => ({ v: j < 4 && (x.lockedHoles || []).includes(j + 1) ? `${v} 🔒` : v, s: j < 4 && goldHoles(x).includes(j + 1) ? 2 : 0 })))
         ];
         const files = {
           '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`,
@@ -544,10 +548,10 @@
           if (!holes.length) throw new Error('出金孔位格式不正確');
           const hole = holes[0];
           const total = positiveInteger(cell(row, '總重鑄次數'));
-          const counts = Array.from({ length: 5 }, (_, i) => positiveInteger(cell(row, `${i + 1}孔`)));
+          const counts = Array.from({ length: 5 }, (_, i) => positiveInteger(String(cell(row, `${i + 1}孔`) ?? '').replace(/\s*🔒/g, '')));
           const clicks = positiveInteger(cell(row, '距上次出金重鑄次數'), Math.max(0, total - previousTotal));
           previousTotal = total;
-          return { hole, holes, count: counts[hole - 1], total, counts, stones: positiveInteger(cell(row, '剩餘石頭')), clicks,
+          return { hole, holes, lockedHoles: [1, 2, 3, 4].filter(i => String(cell(row, `${i}孔`) ?? '').includes('🔒')), count: counts[hole - 1], total, counts, stones: positiveInteger(cell(row, '剩餘石頭')), clicks,
             lockedCount: Math.min(3, positiveInteger(cell(row, '鎖孔數'))), cost: positiveInteger(cell(row, '每次耗石'), 1) || 1 };
         });
         imported.topups = topupRows.slice(1).filter(row => row.some(value => value !== '' && value != null)).map(row => ({
