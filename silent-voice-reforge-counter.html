@@ -111,9 +111,11 @@
     .plan-option:has(input:checked) { border-color: #d69e2e; background: #ffe699; }
     .plan-option input { width: 17px; height: 17px; margin: 0; accent-color: var(--gold); }
     .plan-result { min-width: 110px; text-align: center !important; }
-    .plan-result strong { display: block; margin-bottom: 5px; color: #774b0c; }
-    .plan-buttons { display: flex; justify-content: center; gap: 5px; }
-    .plan-buttons button { padding: 5px 8px; }
+    .plan-result strong { display: block; color: #774b0c; }
+    .plan-controls { display: flex; justify-content: center; margin-top: 12px; }
+    .plan-buttons { display: flex; justify-content: center; gap: 8px; }
+    .plan-buttons[hidden] { display: none; }
+    .plan-buttons button { min-width: 82px; }
     .plan-buttons button:disabled { color: #94a3b8; background: #e2e8f0; cursor: not-allowed; }
     .footer { padding: 12px 24px; color: var(--muted); background: #f8fafc; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 14px 14px; font-size: 12px; }
 
@@ -171,7 +173,6 @@
         <div><h2>出金歷史</h2><span class="hint" id="recordCount">共 0 筆紀錄</span></div>
         <div class="actions">
           <input id="importExcelFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
-          <button class="secondary" id="openPlanEditor" type="button">應用重鑄方案</button>
           <button class="secondary" id="importExcel" type="button">匯入 Excel</button>
           <button class="secondary" id="exportExcel" type="button">匯出 Excel</button>
           <button class="secondary" id="clearHistory" type="button">清空紀錄</button>
@@ -188,10 +189,14 @@
             <td><label class="plan-option"><input type="checkbox" data-plan-hole="3">出金</label></td>
             <td><label class="plan-option"><input type="checkbox" data-plan-hole="4">出金</label></td>
             <td id="planStones">0</td>
-            <td class="plan-result"><strong id="planGoldHoles">請勾選</strong><div class="plan-buttons"><button class="secondary" id="confirmPlan" type="button">應用</button><button class="secondary" id="cancelPlan" type="button">取消</button></div></td>
+            <td class="plan-result"><strong id="planGoldHoles">請勾選</strong></td>
             <td id="planTotal">0</td><td id="planLockedCount">0</td><td id="planCost">1</td>
           </tr></tfoot>
         </table>
+      </div>
+      <div class="plan-controls">
+        <button class="secondary" id="openPlanEditor" type="button">應用暫存方案</button>
+        <div class="plan-buttons" id="planActionButtons" hidden><button class="secondary" id="confirmPlan" type="button">應用</button><button class="secondary" id="cancelPlan" type="button">取消</button></div>
       </div>
     </section>
     <footer class="footer">提示：重鑄後若有出金，再按對應孔位的「出金」；該孔會記錄並歸 0。</footer>
@@ -314,6 +319,8 @@
       document.querySelector('#openPlanEditor').addEventListener('click', () => {
         document.querySelectorAll('[data-plan-hole]').forEach(input => { input.checked = false; });
         el.planEditor.hidden = false;
+        document.querySelector('#openPlanEditor').hidden = true;
+        document.querySelector('#planActionButtons').hidden = false;
         updatePlanEditor();
         el.planEditor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
@@ -322,6 +329,8 @@
 
       document.querySelector('#cancelPlan').addEventListener('click', () => {
         el.planEditor.hidden = true;
+        document.querySelector('#openPlanEditor').hidden = false;
+        document.querySelector('#planActionButtons').hidden = true;
       });
 
       document.querySelector('#confirmPlan').addEventListener('click', () => {
@@ -337,8 +346,10 @@
           lockedCount, cost: [1, 2, 5, 10][lockedCount]
         });
         el.planEditor.hidden = true;
+        document.querySelector('#openPlanEditor').hidden = false;
+        document.querySelector('#planActionButtons').hidden = true;
         save(); render();
-        showToast(`已應用重鑄方案：${holes.join('、')}孔出金`);
+        showToast(`已應用暫存方案：${holes.join('、')}孔出金`);
       });
 
       document.querySelector('#reroll').addEventListener('click', () => {
