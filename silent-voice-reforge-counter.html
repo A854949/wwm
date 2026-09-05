@@ -310,6 +310,9 @@
           if (state.locked[index]) {
             const record = [...state.history].reverse().find(x => goldHoles(x).includes(index + 1)) || state.history[state.history.length - 1];
             if (record) record.lockedHoles = [...new Set([...(record.lockedHoles || []), index + 1])];
+          } else {
+            const latest = state.history[state.history.length - 1];
+            if (latest) latest.lockedHoles = (latest.lockedHoles || []).filter(hole => hole !== index + 1);
           }
           save(); render(); showToast(`孔${index + 1}已${state.locked[index] ? '鎖定' : '解鎖'}`);
           return;
