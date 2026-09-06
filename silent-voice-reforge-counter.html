@@ -87,6 +87,7 @@
     .stone-panel { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; margin: 0 0 24px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fafcfd; }
     .field label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
     .field input { width: 100%; padding: 10px 11px; border: 1px solid #b8c4d1; border-radius: 7px; background: #fff; font: inherit; }
+    .field input:disabled { color: #64748b; border-color: #cbd5e1; background: #e2e8f0; cursor: not-allowed; }
     .input-action { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
     .stone-panel .secondary { min-height: 42px; padding-block: 10px; }
 
@@ -162,7 +163,7 @@
       </div>
 
       <div class="stone-panel">
-        <div class="field"><label for="setStones">設定目前剩餘石頭</label><div class="input-action"><input id="setStones" type="number" min="0" step="1" inputmode="numeric" placeholder="例如：100"><button class="secondary" id="setStonesBtn" type="button">設定</button></div></div>
+        <div class="field"><label for="setStones">設定目前石頭</label><div class="input-action"><input id="setStones" type="number" min="0" step="1" inputmode="numeric" placeholder="例如：100"><button class="secondary" id="setStonesBtn" type="button">設定</button></div></div>
         <div class="field"><label for="topupAmount">充值石頭數</label><input id="topupAmount" type="number" min="1" step="1" inputmode="numeric" placeholder="輸入增加數量"></div>
         <div class="actions"><button class="secondary" id="topupBtn" type="button">充值</button></div>
       </div>
@@ -209,8 +210,9 @@
     (() => {
       'use strict';
       const STORAGE_KEY = 'yysls-cangyin-five-hole-counter-v1';
-      const initialState = () => ({ counts: [0, 0, 0, 0, 0], locked: [false, false, false, false, false], total: 0, stones: 0, topupTotal: 0, sinceLastGold: 0, unlockedCount: 1, unlockProgress: 0, history: [], topups: [] });
+      const initialState = () => ({ counts: [0, 0, 0, 0, 0], locked: [false, false, false, false, false], total: 0, stones: 0, stonesConfigured: false, topupTotal: 0, sinceLastGold: 0, unlockedCount: 1, unlockProgress: 0, history: [], topups: [] });
       let state = load();
+      let stoneEditMode = !state.stonesConfigured;
       let toastTimer;
 
       const el = {
@@ -231,6 +233,7 @@
             locked,
             total: Math.max(0, Number(saved.total) || 0),
             stones: Math.max(0, Number(saved.stones) || 0),
+            stonesConfigured: typeof saved.stonesConfigured === 'boolean' ? saved.stonesConfigured : true,
             topupTotal: Math.max(0, Number(saved.topupTotal) || 0),
             sinceLastGold: Math.max(0, Number(saved.sinceLastGold) || 0),
             unlockedCount: Math.min(5, Math.max(1, Math.trunc(Number(saved.unlockedCount) || (Math.floor((Number(saved.total) || 0) / 30) + 1)))),
@@ -261,6 +264,7 @@
         el.total.textContent = state.total.toLocaleString('zh-TW');
         el.stones.textContent = state.stones.toLocaleString('zh-TW');
         el.topupTotal.textContent = state.topupTotal.toLocaleString('zh-TW');
+        updateStoneEditor();
         const unlocked = state.unlockedCount;
         const lockedCount = state.locked.filter(Boolean).length;
         const rerollCost = [1, 2, 5, 10][lockedCount];
@@ -447,10 +451,28 @@
         return value;
       }
 
+      function updateStoneEditor() {
+        const input = document.querySelector('#setStones');
+        const button = document.querySelector('#setStonesBtn');
+        input.disabled = state.stonesConfigured && !stoneEditMode;
+        button.textContent = !state.stonesConfigured ? '設定' : stoneEditMode ? '確認' : '修改';
+        if (!stoneEditMode) input.value = state.stones;
+      }
+
       document.querySelector('#setStonesBtn').addEventListener('click', () => {
+        if (state.stonesConfigured && !stoneEditMode) {
+          stoneEditMode = true;
+          updateStoneEditor();
+          const input = document.querySelector('#setStones');
+          input.focus();
+          input.select();
+          return;
+        }
         const value = readInteger('#setStones', true);
         if (value === null) return showToast('請輸入 0 或正整數');
         state.stones = value;
+        state.stonesConfigured = true;
+        stoneEditMode = false;
         save(); render(); showToast(`剩餘石頭已設定為 ${value}`);
       });
 
@@ -647,6 +669,7 @@
         const imported = initialState();
         imported.total = positiveInteger(progressMap.get('總重鑄次數')?.[1]);
         imported.stones = positiveInteger(progressMap.get('剩餘石頭')?.[1]);
+        imported.stonesConfigured = true;
         imported.topupTotal = positiveInteger(progressMap.get('累計充值石頭')?.[1]);
         imported.sinceLastGold = positiveInteger(progressMap.get('距上次出金重鑄次數')?.[1] ?? metadata.get('_CounterSinceGold'));
         imported.unlockedCount = Math.min(5, Math.max(1, positiveInteger(progressMap.get('目前已開孔數')?.[1], Math.floor(imported.total / 30) + 1)));
@@ -677,6 +700,7 @@
         const summary = `將匯入：總重鑄 ${imported.total} 次、剩餘石頭 ${imported.stones}、出金紀錄 ${imported.history.length} 筆。\n\n目前瀏覽器內的資料會被取代，確定繼續嗎？`;
         if (!confirm(summary)) return false;
         state = imported;
+        stoneEditMode = false;
         save(); render();
         showToast('Excel 已匯入，可以繼續重鑄');
         return true;
@@ -704,6 +728,7 @@
       document.querySelector('#resetAll').addEventListener('click', () => {
         if (!confirm('確定要全部重置嗎？五孔計數、總重鑄次數與出金歷史都會清除。')) return;
         state = initialState();
+        stoneEditMode = true;
         save(); render(); showToast('所有資料已重置');
       });
 
